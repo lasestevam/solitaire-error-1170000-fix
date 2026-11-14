@@ -1,31 +1,80 @@
-Correção do erro 1170000 — Microsoft Solitaire Collection
-Guia em português para Windows 11. O erro 1170000 pode aparecer na entrada do Solitaire mesmo que o aplicativo Xbox faça login normalmente.
-Diagnóstico confirmado em um computador
-Serviço	Situação encontrada
-GamingServices	Running / Automatic
-GamingServicesNet	Running / Automatic
-XblAuthManager	Stopped / Disabled
-XblGameSave	Stopped / Disabled
-XboxNetApiSvc	Stopped / Disabled
+# Corrigir o erro 1170000 do Microsoft Solitaire Collection — Windows 11
 
+Guia em português para corrigir uma possível causa do erro **1170000** ao entrar no Microsoft Solitaire Collection:
 
-Neste caso, restaurar a inicialização manual dos três serviços Xbox e iniciar XblAuthManager resolveu o problema. Não é uma solução garantida para todas as causas do erro.
-Correção manual
+> Não foi possível conectá-lo ao Xbox Live.
+
+## Problema identificado
+
+No caso testado, o aplicativo Xbox permitia fazer login normalmente, mas o Microsoft Solitaire Collection apresentava o erro 1170000. A verificação dos serviços do Windows mostrou:
+
+| Serviço | Status | Tipo de inicialização |
+| --- | --- | --- |
+| GamingServices | Running | Automatic |
+| GamingServicesNet | Running | Automatic |
+| XblAuthManager | Stopped | Disabled |
+| XblGameSave | Stopped | Disabled |
+| XboxNetApiSvc | Stopped | Disabled |
+
+**Resultado:** reativar os três serviços Xbox (inicialização manual) e iniciar o serviço de autenticação `XblAuthManager` resolveu a falha naquele computador.
+
+**Atenção:** o erro 1170000 pode ter outras causas. A solução abaixo é indicada especialmente quando os serviços Xbox estão desativados.
+
+## Método manual
+
 1. Feche o Microsoft Solitaire Collection.
-2. Abra PowerShell como administrador.
+2. Abra o **PowerShell/Terminal como administrador**.
 3. Verifique os serviços:
-Get-Service -Name XblAuthManager,XblGameSave,XboxNetApiSvc,GamingServices,GamingServicesNet -ErrorAction SilentlyContinue | Select-Object Name,Status,StartType
-4. Se os serviços Xbox estiverem desativados, configure-os para inicialização manual:
-'XblAuthManager','XblGameSave','XboxNetApiSvc' | ForEach-Object { Set-Service -Name $_ -StartupType Manual }
-5. Inicie o serviço de autenticação:
+
+```powershell
+Get-Service -Name XblAuthManager,XblGameSave,XboxNetApiSvc,GamingServices,GamingServicesNet -ErrorAction SilentlyContinue |
+    Select-Object Name,Status,StartType
+```
+
+4. **Se os serviços Xbox estiverem desativados**, configure-os como Manual:
+
+```powershell
+'XblAuthManager','XblGameSave','XboxNetApiSvc' | ForEach-Object {
+    Set-Service -Name $_ -StartupType Manual
+}
+```
+
+5. Inicie o serviço de autenticação Xbox Live:
+
+```powershell
 Start-Service -Name XblAuthManager
+```
+
 6. Abra o Solitaire e tente entrar novamente.
-Nota: Set-Service -Name recebe um único nome por chamada; o ForEach-Object permite percorrer os três serviços sem erro de argumento.
-Script com confirmação
-O arquivo [`corrigir-erro-1170000.ps1`](corrigir-erro-1170000.ps1) confere quais serviços existem, mostra os estados, pede autorização antes de modificar os serviços desativados e tenta iniciar o serviço de autenticação. Para usar, revise o arquivo, abra o PowerShell como administrador, navegue até a pasta onde está salvo e execute:
+
+> No Windows PowerShell, `Set-Service -Name` aceita um serviço por chamada. O `ForEach-Object` evita o erro ao tentar passar três nomes de uma vez.
+
+## Método assistido (script)
+
+Arquivo: [corrigir-erro-1170000.ps1](corrigir-erro-1170000.ps1)
+
+O script mostra o estado dos serviços, pede confirmação antes de alterar os que estão desativados, tenta iniciar `XblAuthManager` e exibe os estados finais.
+
+Para executar:
+1. Baixe o script e **leia o conteúdo**.
+2. Abra o PowerShell como administrador.
+3. Entre na pasta em que o script está salvo.
+4. Execute:
+
+```powershell
 .\corrigir-erro-1170000.ps1
-O script não redefine o jogo, não exclui arquivos e não apaga progresso local.
-Caso o erro continue
-Confira se a mesma conta Microsoft está conectada ao Xbox e à Microsoft Store. Experimente Reparar o Solitaire nas configurações do Windows, depois de fechar o aplicativo. Evite Redefinir sem confirmar que seu progresso está sincronizado.
-Aviso
-Execute os comandos somente em um computador que você administra. Eles alteram a configuração de serviços do Windows. Solução independente, sem vínculo com a Microsoft. Testada no Windows 11 com PowerShell 5.1.
+```
+
+Se a política de execução do Windows bloquear o arquivo, não é necessário desativar a proteção do sistema: use o método manual acima.
+
+## Outras verificações
+
+Se a falha continuar, verifique se a Microsoft Store e o Xbox estão conectados à mesma conta e tente **Reparar** o aplicativo Solitaire nas Configurações do Windows. Evite **Redefinir** ou desinstalar o aplicativo antes de confirmar se o progresso está sincronizado.
+
+## Segurança e escopo
+
+- Testado em **Windows 11**.
+- A alteração de serviços requer privilégios de administrador.
+- Não apaga dados do jogo nem reinstala aplicativos.
+- Não garante a resolução de todos os casos do código 1170000.
+- Projeto independente, sem afiliação com a Microsoft ou o Xbox.

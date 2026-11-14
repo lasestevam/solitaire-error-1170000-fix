@@ -1,22 +1,25 @@
-# Microsoft Solitaire Collection erro 1170000 - diagnostico e reparo opcional.
-# Execute como administrador. Nao apaga dados do jogo.
+# Correcao do erro 1170000 do Microsoft Solitaire Collection no Windows 11.
+# Leia antes de executar. Requer PowerShell como administrador.
+# Nao apaga progresso do jogo nem redefine aplicativos.
+
+$ErrorActionPreference = 'Stop'
 $serviceNames = @('XblAuthManager', 'XblGameSave', 'XboxNetApiSvc')
-$allNames = @('GamingServices', 'GamingServicesNet') + $serviceNames
+$checkNames = @('GamingServices', 'GamingServicesNet') + $serviceNames
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($identity)
+$principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Warning 'Execute o PowerShell como administrador.'
+    Write-Host 'Abra o PowerShell como administrador e execute novamente.' -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host 'Servicos encontrados:' -ForegroundColor Cyan
-foreach ($name in $allNames) {
-    $s = Get-Service -Name $name -ErrorAction SilentlyContinue
-    if ($null -eq $s) {
-        Write-Warning "$name nao encontrado"
+Write-Host 'Estado atual dos servicos:' -ForegroundColor Cyan
+foreach ($name in $checkNames) {
+    $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if ($null -eq $service) {
+        Write-Host ("{0}: NAO ENCONTRADO" -f $name) -ForegroundColor Yellow
     } else {
-        Write-Host ('{0}: {1} / {2}' -f $name, $s.Status, $s.StartType)
+        Write-Host ("{0}: {1} / {2}" -f $name, $service.Status, $service.StartType)
     }
 }
 
@@ -26,43 +29,49 @@ $disabled = @($serviceNames | Where-Object {
 })
 
 if ($disabled.Count -gt 0) {
-    Write-Host ('Servicos desativados: ' + ($disabled -join ', ')) -ForegroundColor Yellow
-    $answer = Read-Host 'Mudar SOMENTE esses servicos para Manual? (S/N)'
-    if ($answer -notin @('S', 's', 'sim', 'Sim', 'SIM')) {
-        Write-Host 'Nenhuma alteracao realizada.'
+    Write-Host ''
+    Write-Host 'Servicos Xbox desativados:' -ForegroundColor Yellow
+    $disabled | ForEach-Object { Write-Host (" - {0}" -f $_) }
+    $answer = Read-Host 'Deseja alterar SOMENTE esses servicos para inicializacao Manual? (S/N)'
+    if ($answer -notin @('S','s','Sim','sim')) {
+        Write-Host 'Nenhuma configuracao foi alterada.'
         exit 0
     }
+
     foreach ($name in $disabled) {
         try {
-            Set-Service -Name $name -StartupType Manual -ErrorAction Stop
-            Write-Host "$name configurado como Manual." -ForegroundColor Green
+            Set-Service -Name $name -StartupType Manual
+            Write-Host ("Configurado como Manual: {0}" -f $name) -ForegroundColor Green
         } catch {
-            Write-Warning ('Falha ao configurar {0}: {1}' -f $name, $_.Exception.Message)
+            Write-Warning ("Falha ao configurar {0}: {1}" -f $name, $_.Exception.Message)
         }
     }
 } else {
-    Write-Host 'Nenhum dos tres servicos Xbox esta desativado.'
+    Write-Host 'Nenhum dos servicos Xbox encontrados esta desativado.'
 }
 
-$auth = Get-Service -Name XblAuthManager -ErrorAction SilentlyContinue
+$auth = Get-Service -Name 'XblAuthManager' -ErrorAction SilentlyContinue
 if ($null -eq $auth) {
-    Write-Warning 'XblAuthManager nao encontrado.'
+    Write-Warning 'XblAuthManager nao encontrado. Nao e possivel iniciar a autenticacao.'
 } elseif ($auth.Status -eq 'Running') {
-    Write-Host 'XblAuthManager ja esta ativo.' -ForegroundColor Green
+    Write-Host 'XblAuthManager ja esta em execucao.' -ForegroundColor Green
 } elseif ($auth.StartType -eq 'Disabled') {
-    Write-Warning 'XblAuthManager continua desativado e nao pode ser iniciado.'
+    Write-Warning 'XblAuthManager permanece desativado.'
 } else {
     try {
-        Start-Service -Name XblAuthManager -ErrorAction Stop
+        Start-Service -Name 'XblAuthManager'
         Write-Host 'XblAuthManager iniciado.' -ForegroundColor Green
     } catch {
-        Write-Warning ('Falha ao iniciar XblAuthManager: {0}' -f $_.Exception.Message)
+        Write-Warning ("Falha ao iniciar XblAuthManager: {0}" -f $_.Exception.Message)
     }
 }
 
+Write-Host ''
 Write-Host 'Estado final:' -ForegroundColor Cyan
-foreach ($name in $allNames) {
-    $s = Get-Service -Name $name -ErrorAction SilentlyContinue
-    if ($null -ne $s) { Write-Host ('{0}: {1} / {2}' -f $name, $s.Status, $s.StartType) }
+foreach ($name in $checkNames) {
+    $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if ($null -ne $service) {
+        Write-Host ("{0}: {1} / {2}" -f $name, $service.Status, $service.StartType)
+    }
 }
-Write-Host 'Reabra o Solitaire e teste o login.'
+Write-Host 'Teste o login no Microsoft Solitaire Collection.'
